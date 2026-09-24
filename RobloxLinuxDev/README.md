@@ -60,6 +60,8 @@ tar --exclude='RobloxLinuxRelease/DO_NOT_SHARE' -czf RobloxLinuxRelease.tar.gz -
 
 `python3 runtime/package/check-release.py` runs the offline storage, flags, updater preservation/rollback and download validation checks. The full build also runs compiler/ABI checks and an isolated guest timezone check. It does not establish full gameplay compatibility.
 
+`python3 runtime/package/check-appimage.py /path/to/RobloxLinux.AppImage` checks a built image through a memory-backed executable, reproducing AppImageLauncher's path handling and verifying extraction without FUSE and private data paths.
+
 `python3 runtime/package/check-diagnostics.py` checks signal reporting, private log storage,
 exit-status and argument forwarding, and shader log preservation. The launcher accepts
 `--diagnose` for a system report or `--debug` before its usual arguments to log a run.

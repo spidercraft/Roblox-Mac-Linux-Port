@@ -2,7 +2,7 @@
 
 An experimental, unofficial runner for the Intel macOS Roblox client on x86_64 Linux, using Darling, Wayland and Vulkan.
 
-**[Download RobloxLinuxRelease.tar.gz](https://github.com/spidercraft/Roblox-Mac-Linux-Port/releases/latest)**, extract it, run `sh update-roblox.sh` inside `RobloxLinuxRelease`, then double-click `RobloxLinux.AppImage`.
+**[Download RobloxLinuxRelease.tar.gz](https://github.com/spidercraft/Roblox-Mac-Linux-Port/releases/latest)**, extract it, run `sh update-roblox.sh` inside `RobloxLinuxRelease`, then `sh run.sh`.
 
 ```text
 RobloxLinuxDev/        Source, dependency pins, patches and build scripts
@@ -31,10 +31,12 @@ sh run.sh
 ```
 
 The update step downloads the official client and prepares its shaders; wait for it
-to finish successfully before launching. On later launches, just run `sh run.sh`
-or double-click `RobloxLinux.AppImage`. Keep `RobloxVersion` beside the AppImage.
+to finish successfully before launching. On later launches, just run `sh run.sh`.
+Keep `RobloxVersion` beside the AppImage. Use the scripts on systems with
+AppImageLauncher: they prevent relocation and keep temporary paths in the release
+folder, avoiding `//DO_NOT_SHARE` permission errors before Roblox starts.
 
-`run.sh` launches with diagnostic logging, equivalent to `./RobloxLinux.AppImage --debug`.
+`run.sh` launches with diagnostic logging and sets up the AppImage environment.
 To collect system information without opening Roblox:
 
 ```sh

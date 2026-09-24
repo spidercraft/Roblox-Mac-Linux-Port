@@ -76,8 +76,12 @@ with tempfile.TemporaryDirectory(prefix='roblox release ') as tmp:
     assert json.loads(settings.read_text()) == {}
 
     shutil.copy2(root / 'package/update-roblox.sh', release)
+    shutil.copy2(root / 'package/run.sh', release)
     image.write_text('''#!/bin/sh
 set -eu
+[ "$APPIMAGELAUNCHER_DISABLE" = 1 ] && [ "$_FORCE_HEADLESS" = 1 ]
+[ "$TARGET_APPIMAGE" = "$0" ] && [ "${APPIMAGE_TARGET_DIR-unset}" = unset ]
+[ "$TMPDIR" = "$(dirname "$0")/DO_NOT_SHARE/tmp" ] && [ -d "$TMPDIR" ]
 [ "$1" != --debug ] || shift
 case "$1" in
 --client-version) echo 'Runtime extraction progress'; echo version-abcd;;

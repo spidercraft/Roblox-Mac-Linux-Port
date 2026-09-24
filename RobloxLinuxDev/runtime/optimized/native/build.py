@@ -92,7 +92,7 @@ checks = [('cpu-check', b / 'cpu-query-check.m', ['-framework', 'Foundation']),
           ('task-info-check', here / 'task-info-check.c', []),
           ('host-memory-check', a / 'shims/identity/memory-check.c', []),
           *[(name + '-check', a / 'probes' / (name + '.c'), [])
-            for name in ('kqueue', 'cond-wakeup', 'workq', 'semaphore', 'thread-switch', 'io')]]
+            for name in ('kqueue', 'cond-wakeup', 'workq', 'semaphore', 'semaphore-destroy', 'thread-switch', 'io')]]
 for name, source, extra in checks:
     run(flags + extra + [source, '-o', out / name], name)
 run(['cc', '-O2', '-shared', '-fPIC', '-Wall', '-Wextra', '-Werror',

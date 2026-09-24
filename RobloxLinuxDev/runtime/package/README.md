@@ -36,8 +36,11 @@ sh run.sh
 ```
 
 Wait for the update to finish successfully before launching. On later launches,
-just run `sh run.sh` or double-click **RobloxLinux.AppImage**.
-Keep the generated **RobloxVersion** beside it.
+just run `sh run.sh`. Keep the generated **RobloxVersion** beside the AppImage.
+Use the scripts on systems with AppImageLauncher. They prevent it from moving
+the AppImage away from its client and keep temporary files in this release folder.
+Older releases could fail before Roblox started with `//DO_NOT_SHARE` permission
+errors and Qt plugin warnings; replace the AppImage, `run.sh` and updater together.
 Linux needs x86_64, glibc 2.39 or newer (the Ubuntu 24.04 baseline), a Wayland
 desktop, compatible Vulkan drivers, Python 3, util-linux and unprivileged user
 namespaces. X11-only sessions, other CPU architectures and musl-based systems are
@@ -48,9 +51,9 @@ checks reject bundled ELF files requiring AVX-512 or glibc newer than 2.39 and
 test native UI loading on the baseline. The host still supplies glibc, Wayland/XCB libraries and GPU
 drivers; full gameplay compatibility on every system is not guaranteed.
 
-For troubleshooting, run `sh run.sh` (or `./RobloxLinux.AppImage --debug`).
+For troubleshooting, run `sh run.sh`.
 For a system check without launching Roblox, run `sh run.sh --diagnose`
-or `./RobloxLinux.AppImage --diagnose`. This records the CPU and its features,
+to record the CPU and its features,
 RAM/swap, kernel, distribution, GPU driver, user-namespace checks and shader-tool
 versions or terminating signals under the shader memory limit. It also checks
 native UI and EGL driver loading and reports missing libraries or symbol versions.

@@ -120,10 +120,7 @@ ARCH=x86_64 "$TOOL" --appimage-extract-and-run --runtime-file "$RUNTIME" -n "$AP
 chmod 755 "$NEXT"
 # uruntime's default extraction fallback stops at 350 MiB; this image bundles LLVM.
 sed -i 's/URUNTIME_EXTRACT=3/URUNTIME_EXTRACT=2/g' "$NEXT"
-# Keep the runtime's extraction/mount directory local too. A content-specific
-# path prevents reuse of stale extracted files after replacing the AppImage.
-IMAGE_KEY=$(sha256sum "$NEXT" | cut -c1-16)
-"$NEXT" --appimage-addenvs "APPIMAGE_TARGET_DIR=\${URUNTIME_DIR}/DO_NOT_SHARE/appimage-$IMAGE_KEY
-TMPDIR=\${URUNTIME_DIR}/DO_NOT_SHARE/tmp"
+# run.sh supplies private TMPDIR; uruntime supplies content-specific cache names.
+# Do not embed paths based on URUNTIME_DIR: AppImageLauncher's memfd resolves to /.
 mv -f -- "$NEXT" "$OUT"
 ls -lh "$OUT"

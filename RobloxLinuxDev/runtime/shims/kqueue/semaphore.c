@@ -109,6 +109,9 @@ kern_return_t semaphore_destroy(task_t task, semaphore_t semaphore) {
     lock_free();
     int alive = current(s, generation);
     if (alive) {
+        // Keep the slot until the final wake; a stale caller can otherwise
+        // recycle it as soon as dead is set and wake a replacement semaphore.
+        __atomic_add_fetch(&s->users, 1, __ATOMIC_ACQ_REL);
         __atomic_add_fetch(&s->generation, 1, __ATOMIC_ACQ_REL);
         __atomic_store_n(&s->dead, 1, __ATOMIC_RELEASE);
     }
@@ -116,7 +119,7 @@ kern_return_t semaphore_destroy(task_t task, semaphore_t semaphore) {
     if (!alive) return KERN_INVALID_ARGUMENT;
     __atomic_add_fetch(&s->wakeups, 1, __ATOMIC_RELEASE);
     linux_futex(&s->wakeups, futex_wake_private, INT_MAX, NULL);
-    release_if_idle(s);
+    leave(s);
     return KERN_SUCCESS;
 }
 
