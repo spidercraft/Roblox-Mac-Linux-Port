@@ -12,6 +12,7 @@ c++ -std=c++17 -O2 "$HERE/presentation-semaphore-check.cpp" -o "$OUT/presentatio
 python3 "$HERE/presentation-route-check.py"
 python3 "$HERE/compute-layout-check.py"
 python3 "$HERE/compute-sync-check.py"
+python3 "$HERE/command-sync-check.py"
 c++ -std=c++17 -O2 -pthread "$HERE/pipeline-workers-check.cpp" -o "$OUT/pipeline-workers-check"
 "$OUT/pipeline-workers-check"
 set --

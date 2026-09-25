@@ -85,10 +85,8 @@ void Indium::SwapchainPresenter::waitIdle() {
 	if (!_copies.semaphore) return;
 	waitForCopies(_submitted);
 	// Presents also wait on semaphores that are about to be destroyed.
-	if (_sharedQueue) {
-		std::scoped_lock lock(queueSubmissionMutex());
-		DynamicVK::vkQueueWaitIdle(_queue);
-	} else DynamicVK::vkQueueWaitIdle(_queue);
+	std::scoped_lock lock(queueSubmissionMutex(_queue));
+	DynamicVK::vkQueueWaitIdle(_queue);
 }
 
 bool Indium::SwapchainPresenter::recreate(VkExtent2D extent, bool vsync) {
@@ -240,7 +238,7 @@ Indium::SwapchainPresenter::Result Indium::SwapchainPresenter::present(PrivateTe
 	submit.pCommandBufferInfos = &commandInfo;
 	submit.signalSemaphoreInfoCount = signals.size();
 	submit.pSignalSemaphoreInfos = signals.data();
-	// Indium serializes every vkQueueSubmit2 across queues.
+	// Indium serializes submissions only against other users of this queue.
 	if (DynamicVK::vkQueueSubmit2(_queue, 1, &submit, VK_NULL_HANDLE) != VK_SUCCESS) {
 		--_submitted;
 		return Result::Failed;
@@ -256,10 +254,10 @@ Indium::SwapchainPresenter::Result Indium::SwapchainPresenter::present(PrivateTe
 	present.pSwapchains = &_swapchain;
 	present.pImageIndices = &index;
 	VkResult presented;
-	if (_sharedQueue) {
-		std::scoped_lock queueLock(queueSubmissionMutex());
+	{
+		std::scoped_lock queueLock(queueSubmissionMutex(_queue));
 		presented = DynamicVK::vkQueuePresentKHR(_queue, &present);
-	} else presented = DynamicVK::vkQueuePresentKHR(_queue, &present);
+	}
 	if (presented == VK_SUBOPTIMAL_KHR || presented == VK_ERROR_OUT_OF_DATE_KHR) _stale = true;
 	else if (presented != VK_SUCCESS) return Result::Lost;
 	return Result::Presented;

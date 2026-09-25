@@ -32,7 +32,7 @@ namespace Indium {
 	void finitGlobalDeviceList();
 	// Held around every vkQueueSubmit driver call, including prebuilt callers';
 	// anything else that uses those queues (vkQueuePresentKHR) must hold it too.
-	std::mutex& queueSubmissionMutex();
+	std::mutex& queueSubmissionMutex(VkQueue queue);
 
 	class PrivateDevice: public Device, public std::enable_shared_from_this<PrivateDevice> {
 	private:

@@ -17,6 +17,7 @@
 #include <iridium/iridium.hpp>
 
 #include <set>
+#include <map>
 #include <stdexcept>
 #include <thread>
 #include <unordered_set>
@@ -43,17 +44,15 @@ void semaphoreLifetimeDiagnostic(bool binary, bool created, bool exportable = fa
 }
 // Prebuilt Cocotron also calls these DynamicVK entry points when initializing
 // drawables, outside Track B's queueMutex. Serialize the actual driver calls too.
-// ponytail: one submission lock across devices; split by VkQueue if contention
-// between multiple physical devices is ever measured.
-std::mutex submissionMutex;
+// Different queues must remain independent when presentation stalls.
 PFN_vkQueueSubmit originalSubmit;
 PFN_vkQueueSubmit2 originalSubmit2;
 VkResult synchronizedSubmit(VkQueue queue, uint32_t count, const VkSubmitInfo* infos, VkFence fence) {
-	std::scoped_lock lock(submissionMutex);
+	std::scoped_lock lock(Indium::queueSubmissionMutex(queue));
 	return originalSubmit(queue, count, infos, fence);
 }
 VkResult synchronizedSubmit2(VkQueue queue, uint32_t count, const VkSubmitInfo2* infos, VkFence fence) {
-	std::scoped_lock lock(submissionMutex);
+	std::scoped_lock lock(Indium::queueSubmissionMutex(queue));
 	return originalSubmit2(queue, count, infos, fence);
 }
 // Optional device extensions that have no public Indium feature bit.
@@ -116,8 +115,11 @@ void synchronizeSubmissionEntryPoints() {
 
 std::vector<std::shared_ptr<Indium::PrivateDevice>> Indium::globalDeviceList;
 
-std::mutex& Indium::queueSubmissionMutex() {
-	return submissionMutex;
+std::mutex& Indium::queueSubmissionMutex(VkQueue queue) {
+	static std::mutex registryMutex;
+	static std::map<VkQueue, std::mutex> queues;
+	std::scoped_lock lock(registryMutex);
+	return queues[queue];
 }
 
 void Indium::initGlobalDeviceList() {

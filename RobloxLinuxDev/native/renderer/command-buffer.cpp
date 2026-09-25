@@ -23,6 +23,24 @@ extern "C" void* dispatch_queue_create(const char*, void*);
 extern "C" void* dispatch_get_global_queue(long, unsigned long);
 extern "C" void dispatch_async_f(void*, void*, void (*)(void*));
 namespace {
+bool usesGraphicsQueueOnly(std::shared_ptr<Indium::Texture> texture) {
+	while (auto parent = texture->parentTexture()) texture = std::move(parent);
+	// Concrete textures (including ViewportFrame targets) and their uploads
+	// use graphicsQueue(). Drawables can also be used by GL/the present queue.
+	return dynamic_cast<Indium::ConcreteTexture*>(texture.get()) != nullptr;
+}
+
+void synchronizeGraphicsQueue(VkCommandBuffer command) {
+	// Replace per-texture semaphore pairs with one dependency on earlier queue
+	// submissions. Include WAR ordering as well as visibility of prior writes.
+	// ponytail: whole-queue barrier; narrow to resource hazards if this becomes a bottleneck.
+	VkMemoryBarrier barrier {VK_STRUCTURE_TYPE_MEMORY_BARRIER};
+	barrier.srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT;
+	barrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT;
+	Indium::DynamicVK::vkCmdPipelineBarrier(command, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+		VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 1, &barrier, 0, nullptr, 0, nullptr);
+}
+
 void scheduleMetalHandlers(std::function<void()> work, bool completed = false) {
 	// Application scheduled handlers can block. Keep them off the GPU polling
 	// thread so unrelated command and drawable completions continue to drain.
@@ -98,6 +116,7 @@ Indium::PrivateCommandBuffer::PrivateCommandBuffer(std::shared_ptr<PrivateComman
 		abort();
 	}
 	begin.finish();
+	synchronizeGraphicsQueue(_commandBuffer);
 	RbxProfiler::DiagnosticScope queries(RBX_DIAG_QUERY_SETUP,0,this);
 	_timestampPool = beginGpuTiming(*_privateDevice, _commandBuffer);
 };
@@ -260,7 +279,7 @@ void Indium::PrivateCommandBuffer::commit() {
 	for (const auto& texture: readWriteTextures) {
 		auto privateTexture = std::static_pointer_cast<PrivateTexture>(texture);
 		// Track B uses Darling's CAMetalDrawable for presentation. Ordinary
-		// attachments are synchronized by acquire()'s timeline semaphore;
+		// attachments are synchronized on the graphics queue;
 		// no consumer ever waits on a presentation binary semaphore for them.
 		if (!exported(privateTexture)) {
 			presentationSemaphores.push_back(nullptr);
@@ -285,6 +304,7 @@ void Indium::PrivateCommandBuffer::commit() {
 	std::vector<std::shared_ptr<BinarySemaphore>> extraWaitSemaphores;
 
 	const auto handleTextureSemaphores = [&](const std::shared_ptr<PrivateTexture>& privateTexture) {
+		if (usesGraphicsQueueOnly(privateTexture)) return;
 		uint64_t waitValue;
 		std::shared_ptr<BinarySemaphore> extraWaitSema;
 		uint64_t signalValue;

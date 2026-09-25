@@ -82,15 +82,33 @@ template<class Fill> static int poll_batch(EventBatch &batch,RbxWaylandEvent *ev
     }
     *event=batch.events[batch.next++];return 1;
 }
+template<class Request> static size_t receive_batch(std::future<EventBatch> &pending,std::array<RbxWaylandEvent,64> &events,Request request) {
+    if(!pending.valid())pending=request();
+    // GTK can be busy drawing the profiler or browser. Never make the game
+    // wait for that work; keep exactly one request and consume it next poll.
+    if(pending.wait_for(std::chrono::seconds(0))!=std::future_status::ready)return 0;
+    auto batch=pending.get();events=std::move(batch.events);return batch.count;
+}
 extern "C" const RbxWaylandAPI *rbx_wayland_api() {
     auto base=trackb_base_wayland_api();if(!base)return nullptr;
     static RbxWaylandAPI api=*base;
     api.create=[](int w,int h)->void*{return on_ui([=]{return create_with_text(w,h);});};
     api.poll=[](RbxWaylandEvent *event)->int{
         thread_local EventBatch batch;
-        return poll_batch(batch,event,[](auto &events){
-            return on_ui([&]{
-                return fill_batch(events,pump,poll_with_text);
+        thread_local std::future<EventBatch> pending;
+        return poll_batch(batch,event,[&](auto &events){
+            return receive_batch(pending,events,[]{
+                auto task=new std::packaged_task<EventBatch()>([]{
+                    EventBatch result{};
+                    result.count=fill_batch(result.events,pump,poll_with_text);
+                    return result;
+                });
+                auto future=task->get_future();
+                g_main_context_invoke(nullptr,[](gpointer data)->gboolean{
+                    std::unique_ptr<std::packaged_task<EventBatch()>> task(static_cast<std::packaged_task<EventBatch()>*>(data));
+                    (*task)();return G_SOURCE_REMOVE;
+                },task);
+                return future;
             });
         });
     };
@@ -293,6 +311,20 @@ int main() {
         if(item.type==RBX_WL_FOCUS)assert(at==4);
     }
     assert(dx==2.5 && dy==-5.0);
+    // A busy GTK thread must not block polling, duplicate requests, or lose
+    // a batch when the guest has already returned from the initiating poll.
+    std::future<EventBatch> pending;
+    std::promise<EventBatch> delivery;
+    unsigned requests=0;
+    auto request=[&]{++requests;return delivery.get_future();};
+    std::array<RbxWaylandEvent,64> events{};
+    assert(receive_batch(pending,events,request)==0);
+    assert(receive_batch(pending,events,request)==0 && requests==1);
+    EventBatch delivered{};delivered.count=2;
+    delivered.events[0].type=RBX_WL_DOWN;delivered.events[1].type=RBX_WL_UP;
+    delivery.set_value(delivered);
+    assert(receive_batch(pending,events,request)==2 && requests==1 && !pending.valid());
+    assert(events[0].type==RBX_WL_DOWN && events[1].type==RBX_WL_UP);
     const std::string input=std::string(254,'a')+"é🙂"+std::string(300,'b');
     committed_text.push_back(input);committed_text.emplace_back("second");
     std::string output;
